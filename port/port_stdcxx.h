@@ -32,7 +32,9 @@
 #define ZSTD_STATIC_LINKING_ONLY  // For ZSTD_compressionParameters.
 #include <zstd.h>
 #endif  // HAVE_ZSTD
-
+#if HAVE_ZLIB
+#include "zlib.h"
+#endif
 #include <cassert>
 #include <condition_variable>  // NOLINT
 #include <cstddef>
@@ -41,7 +43,6 @@
 #include <string>
 
 #include "port/thread_annotations.h"
-
 namespace leveldb {
 namespace port {
 
@@ -129,7 +130,84 @@ inline bool Snappy_Uncompress(const char* input, size_t length, char* output) {
   return false;
 #endif  // HAVE_SNAPPY
 }
+// Zlib 压缩
+inline bool Zlib_Compress(int level, const char* input, size_t length,
+                  std::string* output) {
+#if HAVE_ZLIB
+  const size_t header_size = sizeof(size_t);
+  if (length > 0 && input == nullptr) {
+    return false;
+  }
+  // 计算最大压缩长度并预留头部空间
+  uLongf compressed_bound = compressBound(length);
+  output->resize(header_size + compressed_bound);
 
+  // 写入原始数据长度到头部
+  memcpy(&(*output)[0], &length, header_size);
+
+  // 执行压缩
+  Bytef* dest = reinterpret_cast<Bytef*>(&(*output)[header_size]);
+  uLongf dest_len = compressed_bound;
+  int ret = compress2(dest, &dest_len, reinterpret_cast<const Bytef*>(input),
+                      length, level);
+  if (ret != Z_OK) {
+    output->clear();
+    return false;
+  }
+
+  // 调整最终输出大小
+  output->resize(header_size + dest_len);
+  return true;
+#else
+  (void)level;
+  (void)input;
+  (void)length;
+  (void)output;
+  return false;
+#endif  // HAVE_ZLIB
+}
+inline bool Zlib_GetUncompressedLength(const char* input, size_t length,
+                                        size_t* result) {
+#if HAVE_ZLIB
+  if (length < sizeof(size_t)) {
+    return false;
+  }
+  memcpy(result, input, sizeof(size_t));
+  return true;
+#else
+  (void)input;
+  (void)length;
+  (void)result;
+  return false;
+#endif  // HAVE_ZLIB
+}
+inline bool Zlib_Uncompress(const char* input, size_t length, char* output) {
+#if HAVE_ZLIB
+  size_t original_length;
+  if (!Zlib_GetUncompressedLength(input, length, &original_length)) {
+    return false;
+  }
+  if (length < sizeof(size_t)) {
+    return false;
+  }
+
+  // 获取压缩数据部分
+  const Bytef* compressed_data =
+      reinterpret_cast<const Bytef*>(input) + sizeof(size_t);
+  uLongf compressed_size = length - sizeof(size_t);
+
+  // 执行解压
+  uLongf dest_len = original_length;
+  int ret = uncompress(reinterpret_cast<Bytef*>(output), &dest_len,
+                       compressed_data, compressed_size);
+  return ret == Z_OK && dest_len == original_length;
+#else
+  (void)input;
+  (void)length;
+  (void)output;
+  return false;
+#endif  // HAVE_ZLIB
+}
 inline bool Zstd_Compress(int level, const char* input, size_t length,
                           std::string* output) {
 #if HAVE_ZSTD
