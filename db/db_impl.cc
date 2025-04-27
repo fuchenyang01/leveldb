@@ -1264,8 +1264,18 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     {
       mutex_.Unlock();
       status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
+      bool sync = options.sync;
+      // 如果启用了控制器，则动态判断是否刷盘
+      if (options_.controller != nullptr && !options_.disable_auto_flush) {
+        // 记录本次写入负载（例如数据量）
+        options_.controller->RecordWrite(
+            WriteBatchInternal::ByteSize(write_batch));
+        // 根据控制器决策是否刷盘
+        sync = options_.controller->ShouldFlush();
+      }
+
       bool sync_error = false;
-      if (status.ok() && options.sync) {
+      if (status.ok() && sync) {
         status = logfile_->Sync();
         if (!status.ok()) {
           sync_error = true;

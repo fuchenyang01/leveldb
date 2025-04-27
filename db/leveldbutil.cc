@@ -7,6 +7,8 @@
 #include "leveldb/dumpfile.h"
 #include "leveldb/env.h"
 #include "leveldb/status.h"
+#include "leveldb/db.h"
+#include "leveldb/options.h"
 
 namespace leveldb {
 namespace {
@@ -46,19 +48,19 @@ static void Usage() {
 }
 
 int main(int argc, char** argv) {
-  leveldb::Env* env = leveldb::Env::Default();
-  bool ok = true;
-  if (argc < 2) {
-    Usage();
-    ok = false;
-  } else {
-    std::string command = argv[1];
-    if (command == "dump") {
-      ok = leveldb::HandleDumpCommand(env, argv + 2, argc - 2);
-    } else {
-      Usage();
-      ok = false;
-    }
-  }
-  return (ok ? 0 : 1);
+  leveldb::Options options;
+  options.create_if_missing = true;
+  options.controller =
+      new leveldb::SimpleController(100, 1024 * 1024);  // 每100ms或1MB刷盘
+
+  leveldb::DB* db;
+  leveldb::Status s = leveldb::DB::Open(options, "testdb", &db);
+
+  // 执行写入操作
+  db->Put(leveldb::WriteOptions(), "key1", "value1");
+  db->Put(leveldb::WriteOptions(), "key2", "value2");
+
+  delete db;
+  delete options.controller;
+  return 0;
 }

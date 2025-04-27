@@ -8,6 +8,7 @@
 #include <cstddef>
 
 #include "leveldb/export.h"
+#include <chrono>
 
 namespace leveldb {
 
@@ -29,7 +30,46 @@ enum CompressionType {
   kSnappyCompression = 0x1,
   kZstdCompression = 0x2,
 };
+class Controller {
+ public:
+  virtual ~Controller() = default;
+  virtual void RecordWrite(size_t bytes_written) = 0;  // 记录写入负载
+  virtual bool ShouldFlush() const = 0;  // 判断是否需要刷盘
+};
+class SimpleController : public leveldb::Controller {
+ public:
+  SimpleController(int flush_interval_ms = 100,
+                   size_t flush_bytes = 1024 * 1024)
+      : flush_interval_ms_(flush_interval_ms),
+        flush_bytes_(flush_bytes),
+        last_flush_time_(std::chrono::steady_clock::now()),
+        accumulated_bytes_(0) {}
 
+  void RecordWrite(size_t bytes_written) override {
+    accumulated_bytes_ += bytes_written;
+  }
+
+  bool ShouldFlush() const override {
+    auto now = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now - last_flush_time_)
+                        .count();
+    // 满足时间间隔或数据量阈值则刷盘
+    return (duration >= flush_interval_ms_) ||
+           (accumulated_bytes_ >= flush_bytes_);
+  }
+
+  void Reset() {
+    last_flush_time_ = std::chrono::steady_clock::now();
+    accumulated_bytes_ = 0;
+  }
+
+ private:
+  const int flush_interval_ms_;  // 刷盘时间间隔（毫秒）
+  const size_t flush_bytes_;     // 刷盘数据量阈值（字节）
+  mutable std::chrono::steady_clock::time_point last_flush_time_;
+  mutable size_t accumulated_bytes_;
+};
 // Options to control the behavior of a database (passed to DB::Open)
 struct LEVELDB_EXPORT Options {
   // Create an Options object with default values for all fields.
@@ -145,6 +185,9 @@ struct LEVELDB_EXPORT Options {
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
+
+  Controller* controller = nullptr;
+  bool disable_auto_flush = false;
 };
 
 // Options that control read operations
