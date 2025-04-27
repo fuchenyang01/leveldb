@@ -4,3 +4,12 @@
 [submodule "third_party/benchmark"]
 	path = third_party/benchmark
 	url = https://github.com/google/benchmark
+[submodule "third_party/zstd"]
+	path = third_party/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "third_party/snappy"]
+	path = third_party/snappy
+	url = https://github.com/google/snappy.git
+[submodule "third_party/zlib"]
+	path = third_party/zlib
+	url = https://github.com/madler/zlib.git
