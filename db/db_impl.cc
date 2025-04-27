@@ -178,6 +178,37 @@ DBImpl::~DBImpl() {
   }
 }
 
+Status DBImpl::RangeQuery(
+    const Slice& start, const Slice& end,
+    std::vector<std::pair<std::string, std::string>>* results) {
+  ReadOptions options;
+  options.snapshot = GetSnapshot();
+  Iterator* iter = NewIterator(options);
+
+  // 定位起始位置
+  if (start.size() == 0) {
+    iter->SeekToFirst();
+  } else {
+    iter->Seek(start);
+  }
+
+  // 遍历并收集结果
+  for (; iter->Valid(); iter->Next()) {
+    Slice current_key = iter->key();
+    // 检查是否超过结束键
+    if (end.size() > 0 && user_comparator()->Compare(current_key, end) > 0) {
+      break;
+    }
+    results->emplace_back(current_key.ToString(), iter->value().ToString());
+  }
+
+  // 清理资源
+  Status s = iter->status();
+  delete iter;
+  ReleaseSnapshot(options.snapshot);
+  return s;
+}
+
 Status DBImpl::NewDB() {
   VersionEdit new_db;
   new_db.SetComparatorName(user_comparator()->Name());

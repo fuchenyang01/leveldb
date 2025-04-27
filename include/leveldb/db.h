@@ -11,6 +11,7 @@
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
+#include <vector>
 
 namespace leveldb {
 
@@ -60,9 +61,11 @@ class LEVELDB_EXPORT DB {
 
   virtual ~DB();
 
+  virtual Status RangeQuery(const Slice& start, const Slice& end,
+                          std::vector<std::pair<std::string, std::string>>* results) = 0;
   // Set the database entry for "key" to "value".  Returns OK on success,
   // and a non-OK status on error.
-  // Note: consider setting options.sync = true.
+  // Note: consider setting options.sOync = true.
   virtual Status Put(const WriteOptions& options, const Slice& key,
                      const Slice& value) = 0;
 

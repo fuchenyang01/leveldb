@@ -36,6 +36,8 @@ class DBImpl : public DB {
   ~DBImpl() override;
 
   // Implementations of the DB interface
+  Status RangeQuery(const Slice& start, const Slice& end,
+                  std::vector<std::pair<std::string, std::string>>* results) override;
   Status Put(const WriteOptions&, const Slice& key,
              const Slice& value) override;
   Status Delete(const WriteOptions&, const Slice& key) override;
