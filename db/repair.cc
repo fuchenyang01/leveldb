@@ -203,7 +203,7 @@ class Repairer {
     FileMetaData meta;
     meta.number = next_file_number_++;
     Iterator* iter = mem->NewIterator();
-    status = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    status = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta, 0);
     delete iter;
     mem->Unref();
     mem = nullptr;
@@ -302,7 +302,7 @@ class Repairer {
     if (!s.ok()) {
       return;
     }
-    TableBuilder* builder = new TableBuilder(options_, file);
+    TableBuilder* builder = new TableBuilder(options_, file,0);
 
     // Copy data.
     Iterator* iter = NewTableIterator(t.meta);

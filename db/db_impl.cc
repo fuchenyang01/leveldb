@@ -547,7 +547,17 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    int level = 0;
+    if (meta.file_size > 0)
+    {
+      const Slice min_user_key = meta.smallest.user_key();
+      const Slice max_user_key = meta.largest.user_key();
+      if (base != nullptr) {
+        level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      }
+    }
+
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta, level);
     mutex_.Lock();
   }
 
@@ -853,7 +863,7 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    compact->builder = new TableBuilder(options_, compact->outfile);
+    compact->builder = new TableBuilder(options_, compact->outfile, compact->compaction->level());
   }
   return s;
 }

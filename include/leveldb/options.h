@@ -9,6 +9,7 @@
 
 #include "leveldb/export.h"
 #include <chrono>
+#include <map>
 
 namespace leveldb {
 
@@ -190,6 +191,7 @@ struct LEVELDB_EXPORT Options {
 
   Controller* controller = nullptr;
   bool disable_auto_flush = false;
+  std::map<int, CompressionType> level_compression;
 };
 
 // Options that control read operations

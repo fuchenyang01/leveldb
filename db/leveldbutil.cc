@@ -50,17 +50,26 @@ static void Usage() {
 int main(int argc, char** argv) {
   leveldb::Options options;
   options.create_if_missing = true;
-  options.controller =
-      new leveldb::SimpleController(100, 1024 * 1024);  // 每100ms或1MB刷盘
+  options.zlib_compression_level = 1;
+  options.zstd_compression_level = 1;
+  options.level_compression = {
+      {0, leveldb::CompressionType::kNoCompression},
+      {1, leveldb::CompressionType::kSnappyCompression},
+      {2, leveldb::CompressionType::kSnappyCompression},
+      {3, leveldb::CompressionType::kSnappyCompression},
+      {4, leveldb::CompressionType::kZlibCompression},
+      {5, leveldb::CompressionType::kZlibCompression},
+      {6, leveldb::CompressionType::kZstdCompression},
+  };
 
-  leveldb::DB* db;
-  leveldb::Status s = leveldb::DB::Open(options, "testdb", &db);
+  leveldb::DB* dbzlib;
+  leveldb::DB::Open(options, "testdb", &dbzlib);
 
   // 执行写入操作
-  db->Put(leveldb::WriteOptions(), "key1", "value1");
-  db->Put(leveldb::WriteOptions(), "key2", "value2");
+  dbzlib->Put(leveldb::WriteOptions(), "key1", "value1");
+  dbzlib->Put(leveldb::WriteOptions(), "key2", "value2");
 
-  delete db;
+  delete dbzlib;
   delete options.controller;
   return 0;
 }

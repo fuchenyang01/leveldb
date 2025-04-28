@@ -62,8 +62,8 @@ struct TableBuilder::Rep {
   std::string compressed_output;
 };
 
-TableBuilder::TableBuilder(const Options& options, WritableFile* file)
-    : rep_(new Rep(options, file)) {
+TableBuilder::TableBuilder(const Options& options, WritableFile* file, int level)
+    : rep_(new Rep(options, file)), level_(level) {
   if (rep_->filter_block != nullptr) {
     rep_->filter_block->StartBlock(0);
   }
@@ -148,7 +148,12 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   Slice raw = block->Finish();
 
   Slice block_contents;
-  CompressionType type = r->options.compression;
+  CompressionType type = kNoCompression;
+  auto it = r->options.level_compression.find(level_);
+  if (it != r->options.level_compression.end())
+  {
+    type = it->second;
+  }
   // TODO(postrelease): Support more compression options: zlib?
   switch (type) {
     case kNoCompression:
